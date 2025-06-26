@@ -272,7 +272,10 @@ BASE_DEFAULT_CONFIG = dict(
     force_reuse_object_name=False,
 
     # ===== randomization =====
-    num_scenarios=1  # the number of scenarios in this environment
+    num_scenarios=1,  # the number of scenarios in this environment
+
+    # Optional: parent window handle for embedding (e.g., tkinter frame). If set, Panda3D window will be embedded.
+    parent_window=None,
 )
 
 

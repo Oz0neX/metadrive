@@ -115,12 +115,8 @@ class EngineCore(ShowBase.ShowBase):
     # loadPrcFileData("", "gl-version 3 2")
 
     def __init__(self, global_config):
-        # if EngineCore.global_config is not None:
-        #     # assert global_config is EngineCore.global_config, \
-        #     #     "No allowed to change ptr of global config, which may cause issue"
-        #     pass
-        # else:
         config = global_config
+
         self.main_window_disabled = False
         if "main_camera" not in global_config["sensors"]:
             # reduce size as we don't use the main camera content for improving efficiency
@@ -132,7 +128,6 @@ class EngineCore(ShowBase.ShowBase):
         self.mode = global_config["_render_mode"]
         self.pstats_process = None
         if self.global_config["pstats"]:
-            # pstats debug provided by panda3d
             loadPrcFileData("", "want-pstats 1")
             if not is_port_occupied(5185):
                 self.pstats_process = subprocess.Popen(['pstats'])
@@ -149,25 +144,34 @@ class EngineCore(ShowBase.ShowBase):
         # Setup onscreen render
         if self.global_config["use_render"]:
             assert self.mode == RENDER_MODE_ONSCREEN, "Render mode error"
-            # Warning it may cause memory leak, Pand3d Official has fixed this in their master branch.
-            # You can enable it if your panda version is latest.
             if self.global_config["multi_thread_render"] and not self.use_render_pipeline:
-                # multi-thread render, accelerate simulation
                 loadPrcFileData("", "threading-model {}".format(self.global_config["multi_thread_render_mode"]))
         else:
             self.global_config["show_coordinates"] = False
             if self.global_config["image_observation"]:
                 assert self.mode == RENDER_MODE_OFFSCREEN, "Render mode error"
                 if self.global_config["multi_thread_render"] and not self.use_render_pipeline:
-                    # render-pipeline can not work with multi-thread rendering
                     loadPrcFileData("", "threading-model {}".format(self.global_config["multi_thread_render_mode"]))
             else:
                 assert self.mode == RENDER_MODE_NONE, "Render mode error"
                 if self.global_config["show_interface"]:
-                    # Disable useless camera capturing in none mode
                     self.global_config["show_interface"] = False
 
         loadPrcFileData("", "win-size {} {}".format(*self.global_config["window_size"]))
+
+        self._parent_window = config.get("parent_window", None)
+
+        super(EngineCore, self).__init__(self, windowType=self.mode)
+    
+        # --- BEGIN PATCH: open embedded window if needed ---
+        if self._parent_window is not None:
+            print("This code is executing here YAAAAAAAAAAAAAAAAAAAAAAAa!")
+            from panda3d.core import WindowProperties
+            props = WindowProperties()
+            props.set_size(*self.global_config["window_size"])
+            props.set_origin(0, 0)
+            props.set_parent_window(self._parent_window)
+            self.open_default_window(props=props)
 
         if self.use_render_pipeline:
             from metadrive.render_pipeline.rpcore import RenderPipeline
@@ -209,7 +213,6 @@ class EngineCore(ShowBase.ShowBase):
         if not self.global_config["disable_model_compression"] and not self.use_render_pipeline:
             loadPrcFileData("", "compressed-textures 1")  # Default to compress
 
-        super(EngineCore, self).__init__(windowType=self.mode)
         logger.info("Known Pipes: {}".format(*GraphicsPipeSelection.getGlobalPtr().getPipeTypes()))
         if self.main_window_disabled and self.mode != RENDER_MODE_NONE:
             self.win.setActive(False)
