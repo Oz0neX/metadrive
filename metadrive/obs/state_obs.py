@@ -7,7 +7,7 @@ from metadrive.utils.math import clip, norm
 
 
 class StateObservation(BaseObservation):
-    ego_state_obs_dim = 6
+    ego_state_obs_dim = 5
     """
     Use vehicle state info, navigation info and lidar point clouds info as input
     """
@@ -25,7 +25,8 @@ class StateObservation(BaseObservation):
         shape = self.ego_state_obs_dim + self.navi_dim + self.get_line_detector_dim()
         if self.config["random_agent_model"]:
             shape += 2
-        return gym.spaces.Box(-0.0, 1.0, shape=(shape, ), dtype=np.float32)
+        # Use larger bounds to accommodate raw x,y coordinates
+        return gym.spaces.Box(-np.inf, np.inf, shape=(shape, ), dtype=np.float32)
 
     def observe(self, vehicle):
         """
@@ -36,14 +37,13 @@ class StateObservation(BaseObservation):
 
                     Difference of heading between ego vehicle and current lane,
                     Current speed,
-                    Current steering,
-                    Throttle/brake of last frame,
-                    Steering of last frame,
+                    X coordinate (raw, not normalized),
+                    Y coordinate (raw, not normalized),
                     Yaw Rate,
 
                      [Lateral Position on current lane.], if use lane_line detector, else:
                      [lane_line_detector cloud points]
-                    ], dim >= 9
+                    ], dim >= 7
         Navi info: [
                     Projection of distance between ego vehicle and checkpoint on ego vehicle's heading direction,
                     Projection of distance between ego vehicle and checkpoint on ego vehicle's side direction,
@@ -102,7 +102,7 @@ class StateObservation(BaseObservation):
 
         if vehicle.navigation is None or vehicle.navigation.current_ref_lanes is None:
             # TODO LQY, consider adding observations
-            info += [0] * 5
+            info += [0] * 4  # heading_diff, speed, x_pos, y_pos
         else:
             current_reference_lane = vehicle.navigation.current_ref_lanes[-1]
             info += [
@@ -112,14 +112,13 @@ class StateObservation(BaseObservation):
 
                 # The velocity of target vehicle
                 clip((vehicle.speed_km_h + 1) / (vehicle.max_speed_km_h + 1), 0.0, 1.0),
-
-                # Current steering
-                clip((vehicle.steering / vehicle.MAX_STEERING + 1) / 2, 0.0, 1.0),
-
-                # The normalized actions at last steps
-                clip((vehicle.last_current_action[1][0] + 1) / 2, 0.0, 1.0),
-                clip((vehicle.last_current_action[1][1] + 1) / 2, 0.0, 1.0)
             ]
+
+        # Add raw x, y coordinates (not normalized)
+        info.extend([
+            vehicle.position[0],  # x coordinate
+            vehicle.position[1],  # y coordinate
+        ])
 
         # Current angular acceleration (yaw rate)
         heading_dir_last = vehicle.last_heading_dir
@@ -183,7 +182,8 @@ class LidarStateObservation(BaseObservation):
             if self.config["vehicle_config"]["lidar"]["add_others_navi"]:
                 lidar_dim += self.config["vehicle_config"]["lidar"]["num_others"] * 4
             shape[0] += lidar_dim
-        return gym.spaces.Box(-0.0, 1.0, shape=tuple(shape), dtype=np.float32)
+        # Use larger bounds to accommodate raw x,y coordinates from StateObservation
+        return gym.spaces.Box(-np.inf, np.inf, shape=tuple(shape), dtype=np.float32)
 
     def observe(self, vehicle):
         """
