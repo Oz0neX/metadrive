@@ -25,7 +25,7 @@ from metadrive.manager.replay_manager import ReplayManager
 from metadrive.obs.image_obs import ImageStateObservation
 from metadrive.obs.observation_base import BaseObservation
 from metadrive.obs.observation_base import DummyObservation
-from metadrive.obs.state_obs import LidarStateObservation
+from metadrive.obs.state_obs import LidarStateObservation, MinimalStateObservation
 from metadrive.policy.env_input_policy import EnvInputPolicy
 from metadrive.scenario.utils import convert_recorded_scenario_exported
 from metadrive.utils import Config, merge_dicts, get_np_random, concat_step_infos
@@ -678,7 +678,7 @@ class BaseEnv(gym.Env):
                 o = self.config["agent_observation"](self.config)
             else:
                 img_obs = self.config["image_observation"]
-                o = ImageStateObservation(self.config) if img_obs else LidarStateObservation(self.config)
+                o = ImageStateObservation(self.config) if img_obs else MinimalStateObservation(self.config)
         return o
 
     def _wrap_as_single_agent(self, data):
